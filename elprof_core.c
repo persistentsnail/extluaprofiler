@@ -31,6 +31,7 @@ void elprof_callhookIN(elprof_STATE *S, const char *func_name, const char *file,
 int elprof_callhookOUT(elprof_STATE *S)
 {
 	clock_t now_time_marker;
+	int delay_time;
 	elprof_CALLSTACK_RECORD *leavef;
 	if (S->stack_level-- == 0)
 		return 0;
@@ -39,9 +40,28 @@ int elprof_callhookOUT(elprof_STATE *S)
 	leavef->local_time += now_time_marker - leavef->local_time_marker;
 	leavef->total_time += now_time_marker - leavef->total_time_marker;
 
-	// TODO: save call stack info
-	// ...
-	elprof_logger_save(leavef);
+	// save call stack info
+	delay_time = elprof_logger_save(leavef);
+	if (delay_time < 0)
+	{
+		fprintf(stderr, "save the call of %s : %s : %s failed!",
+				leavef->file_defined,
+				leavef->line_defined,
+				leavef->function_name
+				);
+	}
+	else if (delay_time > 0)
+	{
+		// fix every call stack records' time
+		elprof_CALLSTACK p,q;
+		p = S->stack_top;
+		now_time_marker = get_now_time(); // for top record local_time_marker
+		while (p)
+		{
+			p->total_time -= delay_time;
+			p = p->next;
+		}
+	}
 	CALLSTACK_RECORD_delete(leavef);
 	if (S->stack_level != 0)
 		S->stack_top->local_time_marker = now_time_marker;
