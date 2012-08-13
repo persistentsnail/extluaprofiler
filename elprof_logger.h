@@ -5,5 +5,6 @@
 
 int elprof_logger_save(elprof_CALLSTACK_RECORD *savef);
 int elprof_logger_init(const char *log_filename);
+void elprof_logger_stop();
 
 #endif

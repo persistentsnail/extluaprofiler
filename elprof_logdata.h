@@ -12,7 +12,7 @@ typedef struct _log_RECORD
 
 }log_RECORD;
 
-int log_RECORD_pool_init(int size);
+int log_RECORD_pool_init(int size, const char *log_filename);
 void log_RECORD_pool_free();
 
 void log_RECORD_pool_add(char *source, float local_time, float total_time);

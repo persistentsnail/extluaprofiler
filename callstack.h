@@ -21,7 +21,7 @@ struct _elprof_CALLSTACK_RECORD
 
 typedef elprof_CALLSTACK_RECORD *elprof_CALLSTACK;
 
-typedef _elprof_STATE elprof_STATE;
+typedef struct _elprof_STATE elprof_STATE;
 
 struct _elprof_STATE
 {
@@ -29,13 +29,13 @@ struct _elprof_STATE
 	elprof_CALLSTACK stack_top;
 };
 
-// CALLSTACK RECORDs pool
+/* CALLSTACK RECORDs pool */
 int CALLSTACK_RECORD_pool_create(int init_size);
 elprof_CALLSTACK_RECORD *CALLSTACK_RECORD_new();
 void CALLSTACK_RECORD_delete(elprof_CALLSTACK_RECORD *unused);
 void CALLSTACK_RECORD_pool_destroy();
 
-// CALLSTACK manipulate
+/* CALLSTACK manipulate */
 void CALLSTACK_push(elprof_CALLSTACK *p, elprof_CALLSTACK_RECORD *r);
 elprof_CALLSTACK_RECORD *CALLSTACK_pop(elprof_CALLSTACK *p);
 

@@ -1,9 +1,11 @@
+#include <stdio.h>
+#include <stdlib.h>
 #include "callstack.h"
 #define POOL_SIZE_LIMIT 100
 
-// ************************************************
-// CALLSTACK RECORDS pool implements
-// ***********************************************
+/**************************************************
+ * CALLSTACK RECORDS pool implements
+ **************************************************/
 
 typedef struct _C_R_pool
 {
@@ -15,7 +17,7 @@ typedef struct _C_R_pool
 static C_R_pool s_CRpool;
 static elprof_CALLSTACK_RECORD *s_eC_records;
 
-static _alloc_records_into_pool(int count, int beg_index, int end_index)
+static void _alloc_records_into_pool(int count, int beg_index, int end_index)
 {
 	int index;
 	s_eC_records = (elprof_CALLSTACK_RECORD *)malloc(sizeof(elprof_CALLSTACK_RECORD) * count);
@@ -26,9 +28,7 @@ static _alloc_records_into_pool(int count, int beg_index, int end_index)
 
 int CALLSTACK_RECORD_pool_create(int init_size)
 {
-	int i;
-	
-	// too large size, It is necessary to do?
+	/* too large size, It is necessary to do? */
 	if (init_size > POOL_SIZE_LIMIT)
 		return -1;
 	s_eC_records = NULL;
@@ -36,6 +36,7 @@ int CALLSTACK_RECORD_pool_create(int init_size)
 	_alloc_records_into_pool(init_size, 0, init_size);
 	s_CRpool.pool_size = init_size;
 	s_CRpool.left_size = init_size;
+	return 0;
 }
 
 elprof_CALLSTACK_RECORD *CALLSTACK_RECORD_new()
@@ -55,9 +56,9 @@ void CALLSTACK_RECORD_pool_destroy()
 	free(s_eC_records);
 }
 
-// *************************************************
-// CALLSTACK manipulation implements
-// *************************************************
+/**************************************************
+ ** CALLSTACK manipulation implements
+ **************************************************/
 
 void CALLSTACK_push(elprof_CALLSTACK *p, elprof_CALLSTACK_RECORD *r)
 {

@@ -1,0 +1,3 @@
+all:
+	g++ -o demo main.cpp -L/usr/local/lib -L/home/longzhiri/running/3rd/lua/lua-5.1.3_coco-1.1.4/src -lluajit -ldl -lpthread 
+

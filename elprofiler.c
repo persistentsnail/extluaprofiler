@@ -11,26 +11,27 @@ static int exit_id;
 static int elprof_state_id;
 static elprof_STATE *s_S;
 
+static int profiler_stop(lua_State *L);
 static void callhook(lua_State *L, lua_Debug *ar)
 {
 	lua_getinfo(L, "nS", ar);
 	
-	// ignore LUA API AND C Function
+	/* ignore LUA API AND C Function */
 	if (ar->linedefined == -1)
 		return;
 		
 	if (!ar->event) 
-		// entering a function
+		/* entering a function */
 		elprof_callhookIN(s_S, ar->name, ar->source, ar->linedefined);
  	 else
-  		// ar->event == "return"
+  		/* ar->event == "return" */
     	elprof_callhookOUT(s_S);
 }
 
 static void exit_profiler(lua_State *L)
 {
 	elprof_STATE* S;
-	lua_pushlightuserdata(L, &profstate_id);
+	lua_pushlightuserdata(L, &elprof_state_id);
 	lua_gettable(L, LUA_REGISTRYINDEX);
 	if (!lua_isnil(L, -1))
 	{
@@ -50,7 +51,7 @@ static int profiler_start(lua_State *L)
 	lua_pushlightuserdata(L, &elprof_state_id);
 	lua_gettable(L, LUA_REGISTRYINDEX);
 
-	// mismatch start/stop
+	/* mismatch start/stop */
 	if (!lua_isnil(L, -1))
 		profiler_stop(L);
 	lua_pop(L, 1);
@@ -68,7 +69,7 @@ static int profiler_start(lua_State *L)
 	lua_pushlightuserdata(L, S);
 	lua_settable(L, LUA_REGISTRYINDEX);
 	
-	// use our own exit function instead
+	/* use our own exit function instead */
 	lua_getglobal(L, "os");
 	lua_pushlightuserdata(L, &exit_id);
 	lua_pushstring(L, "exit");

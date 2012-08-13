@@ -3,7 +3,7 @@
 
 #include "callstack.h"
 
-void elprof_callhookIN(elprof_STATE *S, const char *func_name, char *file, int linedefined);
+void elprof_callhookIN(elprof_STATE *S, const char *func_name, const char *file, int linedefined);
 
 int elprof_callhookOUT(elprof_STATE *S);
 

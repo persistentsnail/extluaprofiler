@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "elprof_core.h"
+#include "elprof_logger.h"
 #include "clocks.h"
 
 
@@ -15,7 +16,7 @@ void elprof_callhookIN(elprof_STATE *S, const char *func_name, const char *file,
 	CALLSTACK_push(&(S->stack_top), newf);
 
 	newf->file_defined  = file;
-	newf->linedefined   = linedefined;
+	newf->line_defined   = linedefined;
 	newf->function_name = func_name;
 	newf->local_time    = 0;
 	newf->total_time    = 0;
@@ -40,11 +41,11 @@ int elprof_callhookOUT(elprof_STATE *S)
 	leavef->local_time += now_time_marker - leavef->local_time_marker;
 	leavef->total_time += now_time_marker - leavef->total_time_marker;
 
-	// save call stack info
+	/* save call stack info */
 	delay_time = elprof_logger_save(leavef);
 	if (delay_time < 0)
 	{
-		fprintf(stderr, "save the call of %s : %s : %s failed!",
+		fprintf(stderr, "save the call of %s : %ld : %s failed!",
 				leavef->file_defined,
 				leavef->line_defined,
 				leavef->function_name
@@ -52,10 +53,10 @@ int elprof_callhookOUT(elprof_STATE *S)
 	}
 	else if (delay_time > 0)
 	{
-		// fix every call stack records' time
-		elprof_CALLSTACK p,q;
+		/* fix every call stack records' time */
+		elprof_CALLSTACK p;
 		p = S->stack_top;
-		now_time_marker = get_now_time(); // for top record local_time_marker
+		now_time_marker = get_now_time(); /* for top record local_time_marker */
 		while (p)
 		{
 			p->total_time -= delay_time;
@@ -77,7 +78,7 @@ elprof_STATE *elprof_core_init(const char *out_filename)
 		S->stack_level = 0;
 		S->stack_top = NULL;
 
-		// create CALLSTACK RECORDS pool
+		/* create CALLSTACK RECORDS pool */
 		if (CALLSTACK_RECORD_pool_create(32) == -1 || elprof_logger_init(out_filename) == -1)
 		{
 			free(S);
@@ -87,15 +88,13 @@ elprof_STATE *elprof_core_init(const char *out_filename)
 	return S;
 }
 
-void elprof_core_finalize(elprof_STATE *s)
+void elprof_core_finalize(elprof_STATE *S)
 {
 	if (S)
 	{
 		while(elprof_callhookOUT(S)) ;
 		CALLSTACK_RECORD_pool_destroy();
-
-		//  ...
-		
 		free(S);
+		elprof_logger_stop();
 	}
 }
