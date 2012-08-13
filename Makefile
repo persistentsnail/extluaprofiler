@@ -15,7 +15,7 @@ CFLAGS = -O2 -fPIC $(WARN) $(INCS)
 profiler: $(OBJS)
 	mkdir -p $(OUTPUT_PATH) && $(LD) -shared -o $(OUTPUT_PATH)/$(OUTPUT_NAME) $(OBJS)
 
-debug: CFLAGS += -g -DDebug
+debug: CFLAGS = -g -DDEBUG -fPIC $(WARN) $(INCS)
 debug: profiler
 
 clean:

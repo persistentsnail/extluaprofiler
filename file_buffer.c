@@ -80,10 +80,16 @@ static int _LCM(int a, int b)
 	return (a * b) / _GCD(a, b);
 }
 
-int file_buffer_int(const char *file_name, int buffer_size, int chunk_size)
+int file_buffer_init(const char *file_name, int buffer_size, int chunk_size)
 {
 	int page_size;
 	int mask_size;
+	if (buffer_size < chunk_size)
+	{
+		fprintf(stderr, "Error : the init size is not reasonable!");
+		return -1;
+	}
+
 	s_file_buffer.fd = open(file_name, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
 	if (s_file_buffer.fd == -1)
 	{
@@ -95,8 +101,8 @@ int file_buffer_int(const char *file_name, int buffer_size, int chunk_size)
 
 	/* adjust buffer_size to buffer_size % PAGE_SIZE == 0 and buffer_size % chunk_size == 0 */
 	page_size = sysconf(_SC_PAGE_SIZE);
-	mask_size = _LCM(page_size, chunk_size) - 1;
-	s_file_buffer.buffer_size = buffer_size & ~mask_size;
+	mask_size = _LCM(page_size, chunk_size);
+	s_file_buffer.buffer_size = (buffer_size / mask_size) * mask_size;
 
 	s_file_buffer.memory = _file_mapto_mem(s_file_buffer.fd, s_file_buffer.buffer_size, 0);
 	if (!s_file_buffer.memory) { close(s_file_buffer.fd); return -1;}
@@ -109,10 +115,13 @@ char * file_buffer_get_next_chunk()
 	if (s_file_buffer.chunk_size + s_file_buffer.used_size > s_file_buffer.buffer_size)
 	{
 		int result;
-		ASSERT(s_file_buffer.used_size == s_file_buffer.buffer_size, "run time error: file buffer system size is not logical");
+		ASSERT(s_file_buffer.used_size == s_file_buffer.buffer_size, 
+				"run time error: file buffer system size is not logical");
 		result = _mem_mapto_file(s_file_buffer.memory, s_file_buffer.buffer_size);
 		if (result == -1) return NULL;
-		s_file_buffer.memory = _file_mapto_mem(s_file_buffer.fd, s_file_buffer.buffer_size, s_file_buffer.file_size);
+		s_file_buffer.memory = _file_mapto_mem(s_file_buffer.fd, 
+											   s_file_buffer.buffer_size, 
+											   s_file_buffer.file_size);
 		if (!s_file_buffer.memory) { return NULL; }
 		s_file_buffer.file_size += s_file_buffer.buffer_size;
 		s_file_buffer.used_size = s_file_buffer.chunk_size;
@@ -130,12 +139,18 @@ char * file_buffer_get_next_chunk()
 void file_buffer_free()
 {
 	int left_size;
+	printf("file_buffer_free\n");
 	if (s_file_buffer.memory)
 	{
-		ASSERT(_mem_mapto_file(s_file_buffer.memory, s_file_buffer.buffer_size) != -1, "file buffer free failed on unmapping");
+		ASSERT(_mem_mapto_file(s_file_buffer.memory, s_file_buffer.buffer_size) != -1, 
+			"file buffer free failed on unmapping");
 	}
 	left_size = s_file_buffer.buffer_size - s_file_buffer.used_size;
+	printf("left_size = %d\n", left_size);
 	if (left_size > 0)
-	{ if (-1 == ftruncate(s_file_buffer.fd, s_file_buffer.file_size - left_size)) perror("Error calling ftruncate to change file size"); }
+	{ 
+		if (-1 == ftruncate(s_file_buffer.fd, s_file_buffer.file_size - left_size)) 
+			perror("Error calling ftruncate to change file size");
+	}
 	close(s_file_buffer.fd);
 }

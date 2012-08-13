@@ -3,6 +3,7 @@
 #include <string.h>
 #include "elprof_logdata.h"
 #include "file_buffer.h"
+#include "common.h"
 
 #define FILE_BUFFER_SIZE   (1 << 20)
 
@@ -23,10 +24,10 @@ typedef struct _bucket_t
 static bucket_t *s_hash;
 static int nbuckets;
 
-int log_RECORD_pool_int(int size, const char *log_filename)
+int log_RECORD_pool_init(int size, const char *log_filename)
 {
 
-	if (file_buffer_init(log_filename, sizeof(log_RECORD)) == -1)
+	if (file_buffer_init(log_filename, FILE_BUFFER_SIZE, sizeof(log_RECORD)) == -1)
 		return -1;
 	s_hash = (bucket_t *)malloc(sizeof(bucket_t) * size);
 	memset(s_hash, 0, sizeof(bucket_t) * size);
@@ -40,15 +41,18 @@ void log_RECORD_pool_free()
 	int j;
 	bucket_t *p;
 	char *file_buffer_chunk;
+	printf("entry into free\n");
 	for (i = 0; i < nbuckets; i++)
 	{
 		p = &s_hash[i];
+		ASSERT(p->entry_num <= __h_max_entrys, "runtime error : error size entry");
 		for (j = 0; j < p->entry_num; i++)
 		{
 			file_buffer_chunk = file_buffer_get_next_chunk();
 			memcpy(file_buffer_chunk, &p->entrys[j].record, sizeof(log_RECORD));
 		}
 	}
+	printf("will out pool free\n");
 	free(s_hash);
 	file_buffer_free();
 }

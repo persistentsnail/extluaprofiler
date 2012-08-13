@@ -38,6 +38,7 @@ static int _write(int fd, char *buf, int n)
 			return -1;
 		else
 			n -= nwritten;
+		buf += nwritten;
 	}
 	return 0;
 }
@@ -46,19 +47,22 @@ static int _read(int fd, char *buf, int n)
 {
 	int nread;
 	int first = 1;
+	int tmp = n;
 	while (n > 0)
 	{
 		nread = read(fd, buf, n);
 		if (nread == 0 && first)
 			return 0;
-		if (first)
-			first = 0;
+
+		if (first) first = 0;
+
 		if (nread <= 0)
 			return -1;
 		else
 			n -= nread;
+		buf += nread;
 	}
-	return n;
+	return tmp;
 }
 
 /* send log info buffer data to child process */
@@ -73,12 +77,29 @@ static int _send_log_data()
 	used_size = buffer_get_used_size();
 	data_size = used_size;
 	
+	/* write head */
 	ret = _write(pipefd[1], (char *)&data_size, sizeof(data_size));
-	if (ret < 0) { perror("pipe : write head"); return -1; }
+	if (ret < 0) 
+	{ 
+		perror("pipe : write head");
+		return -1;
+	}
+
+	/* write data */
 	ret = _write(pipefd[1], whole_mem, used_size);
-	if (ret < 0) { perror("pipe : write data"); return -1; }
+	if (ret < 0) 
+	{ 
+		perror("pipe : write data");
+		return -1;
+	}
+
+	/* write end */
 	ret = _write(pipefd[1], DATA_END_MARK_STR, end_marker_str_len);
-	if (ret < 0) { perror("pipe : write end"); return -1; }
+	if (ret < 0) 
+	{ 
+		perror("pipe : write end");
+		return -1;
+	}
 	return 0;
 }
 
@@ -144,20 +165,43 @@ static int _child_process_running(const char *log_filename)
 
 	if ((ret = log_RECORD_pool_init(LOG_RECORD_POOL_SIZE, log_filename)) == -1)
 		return -1;
-	
 	while(1)
 	{
-		ret = _read(pipefd[0], (char *)&data_size, sizeof(data_size));
-		if (ret < 0) { perror("pipe : read head"); exit_id = -1; break; }
-		else if (ret == 0) { exit_id = 0; break; }/* read finish */
 
+		/* read head */
+		ret = _read(pipefd[0], (char *)&data_size, sizeof(data_size));
+		if (ret < 0)
+		{
+			perror("pipe : read head"); 
+			exit_id = -1;
+			break;
+		}
+		else if (ret == 0)/* read finish */
+		{ 
+			exit_id = 0; 
+			break; 
+		}
+
+		/* read data */
 		chunk = buffer_get_next_chunk(data_size);
 		ret = _read(pipefd[0], chunk, data_size);
-		if (ret <= 0) { perror("pipe : read data"); exit_id = -1; break; }
+		if (ret <= 0)
+		{ 
+			perror("pipe : read data"); 
+			exit_id = -1; 
+			break;
+		}
 
+		/* read end */
 		ASSERT(end_marker_str_len < 64, "the length of end marker string is not reasonable");
 		ret = _read(pipefd[0], end_marker_str, end_marker_str_len);
-		if (ret <= 0) { perror("pipe : read end"); exit_id = -1; break; }
+		if (ret <= 0)
+		{
+			perror("pipe : read end");
+			exit_id = -1;
+			break;
+		}
+
 		/* check the packet is reasonable */
 		end_marker_str[end_marker_str_len] = '\0';
 		if (strcmp(end_marker_str, DATA_END_MARK_STR))
@@ -173,6 +217,9 @@ static void _child_process_exit(int exit_id)
 {
 	if (exit_id != 0)
 		fprintf(stderr, "child process exit abnormally!");
+	else
+		fprintf(stderr, "child process exit normally!");
+
 	close(pipefd[0]);
 	buffer_free();
 	exit(exit_id);
@@ -188,9 +235,14 @@ int elprof_logger_init(const char *log_filename)
 	SECOND_PER_CLOCKS = convert_clock_time_seconds(1);
 	
 	if (pipe(pipefd) == -1) { perror("pipe");return -1; }
+	
 	if ((child_pid = fork()) == -1) { perror("fork");return -1; }
+	
 	if (-1 == buffer_init(BUFFER_INIT_SIZE, BUFFER_LIMIT_SIZE))
-	{ fprintf(stderr, "buffer_init failed!"); return -1;}
+	{ 
+		fprintf(stderr, "buffer_init failed!"); 
+		return -1;
+	}
 
 	if (child_pid == 0)
 	{
@@ -206,10 +258,13 @@ int elprof_logger_init(const char *log_filename)
 void elprof_logger_stop(void)
 {
 	int status;
-
+	printf("stop");
 	_send_log_data();
 	buffer_free();
 	close(pipefd[1]);
 	waitpid(child_pid, &status, 0);
+	#ifdef DEBUG
+	printf("parent process exit normally!");
+	#endif
 }
 
