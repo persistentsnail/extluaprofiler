@@ -12,12 +12,29 @@ CC = gcc
 WARN = -W -Wall
 CFLAGS = -O2 -fPIC $(WARN) $(INCS)
 
+all: profiler 
+all: analyzer
+
 profiler: $(OBJS)
-	mkdir -p $(OUTPUT_PATH) && $(LD) -shared -o $(OUTPUT_PATH)/$(OUTPUT_NAME) $(OBJS)
+		mkdir -p $(OUTPUT_PATH) && $(LD) -shared -o $(OUTPUT_PATH)/$(OUTPUT_NAME) $(OBJS)
+
+analyzer:
+		-(cd analyzer && make OUTPUT_PATH=$(OUTPUT_PATH))
 
 debug: CFLAGS = -g -DDEBUG -fPIC $(WARN) $(INCS)
 debug: profiler
+	   -(cd analyzer && make debug OUTPUT_PATH=$(OUTPUT_PATH))
 
 clean:
-	rm -f $(OUTPUT_PATH)/$(OUTPUT_NAME) $(SRC_PATH)/*.o
+		-(rm -f $(OUTPUT_PATH)/$(OUTPUT_NAME) $(SRC_PATH)/*.o)
+		-(cd analyzer && make clean OUTPUT_PATH=$(OUTPUT_PATH))
 
+test: OUTPUT_PATH = ./test 
+test: profiler analyzer
+test:
+	  -(cd test && make)
+
+test_debug: OUTPUT_PATH = ./test
+test_debug:	debug
+test_debug:	
+			-(cd test && make debug)

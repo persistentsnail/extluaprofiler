@@ -11,7 +11,7 @@ enum {__h_max_entrys = 4};
 
 typedef struct _entry_t
 {
-	log_RECORD record;
+	log_RECORD *record;
 	unsigned int hash_val;
 }entry_t;
 
@@ -37,22 +37,6 @@ int log_RECORD_pool_init(int size, const char *log_filename)
 
 void log_RECORD_pool_free()
 {
-	int i;
-	int j;
-	bucket_t *p;
-	char *file_buffer_chunk;
-	printf("entry into free\n");
-	for (i = 0; i < nbuckets; i++)
-	{
-		p = &s_hash[i];
-		ASSERT(p->entry_num <= __h_max_entrys, "runtime error : error size entry");
-		for (j = 0; j < p->entry_num; i++)
-		{
-			file_buffer_chunk = file_buffer_get_next_chunk();
-			memcpy(file_buffer_chunk, &p->entrys[j].record, sizeof(log_RECORD));
-		}
-	}
-	printf("will out pool free\n");
 	free(s_hash);
 	file_buffer_free();
 }
@@ -61,12 +45,10 @@ void log_RECORD_pool_free()
 	 string FNV hash algorithm
 	 from http://isthe.com/chongo/tech/comp/fnv/
  *************************************************************/
-#define FNV1_32A_INIT (0x811c9dc5)
-static unsigned int s_hval = FNV1_32A_INIT;
-static unsigned int
-fnv_32a_str(char *str, unsigned int hval)
+unsigned int
+fnv_32a_str(const char *str, unsigned int hval)
 {
-    unsigned char *s = (unsigned char *)str;	/* unsigned string */
+    const unsigned char *s = (const unsigned char *)str;	/* unsigned string */
     /*
      * FNV-1a hash each octet in the buffer
      */
@@ -84,32 +66,46 @@ fnv_32a_str(char *str, unsigned int hval)
     return hval;
 }
 
+static void _log_RECORD_pool_reset()
+{
+	memset(s_hash, 0, sizeof(bucket_t) * nbuckets);
+}
+
 void log_RECORD_pool_add(char *source, float local_time, float total_time)
 {
 	int i;
 	unsigned int hash_val;
 	bucket_t *bucket;
 	entry_t *dst_entry;
-	char *file_buffer_chunk;
+	log_RECORD *new_rec;
 
 	/* hash source string , get dest entry by hash key */
-	hash_val = fnv_32a_str(source, s_hval);
+	hash_val = fnv_32a_str(source, FNV1_32A_INIT);
 	bucket = &s_hash[hash_val % nbuckets];
 
 	dst_entry = NULL;
 	for (i = 0; i < bucket->entry_num; i++)
 	{
 		if (hash_val == bucket->entrys[i].hash_val &&
-			!strcmp(source, bucket->entrys[i].record.source))
+			!strcmp(source, bucket->entrys[i].record->source))
 		{
 			dst_entry = &bucket->entrys[i];
-			dst_entry->record.call_times++;
+			dst_entry->record->call_times++;
 			break;
 		}
 	}
 
 	if (!dst_entry)
 	{
+		new_rec = (log_RECORD *)file_buffer_get_next_chunk();
+		if (!new_rec)
+		{
+			file_buffer_reset();
+			new_rec = (log_RECORD *)file_buffer_get_next_chunk();
+			ASSERT(new_rec, "File Buffer size is too small");
+			_log_RECORD_pool_reset();
+		}
+
 		if (bucket->entry_num < __h_max_entrys)
 			dst_entry = &bucket->entrys[bucket->entry_num++];
 		else
@@ -117,17 +113,15 @@ void log_RECORD_pool_add(char *source, float local_time, float total_time)
 			dst_entry = &bucket->entrys[0];
 			for (i = 1; i < bucket->entry_num; i++)
 			{
-				if (bucket->entrys[i].record.call_times < dst_entry->record.call_times)
+				if (bucket->entrys[i].record->call_times < dst_entry->record->call_times)
 					dst_entry = &bucket->entrys[i];
 			}
-			/* dump the less call times record to file buffer */
-			file_buffer_chunk = file_buffer_get_next_chunk();
-			memcpy(file_buffer_chunk, &dst_entry->record, sizeof(dst_entry->record));
 		}
-		strcpy(dst_entry->record.source, source);
-		dst_entry->record.local_time = local_time;
-		dst_entry->record.total_time = total_time;
-		dst_entry->record.call_times = 1;
+		dst_entry->record = new_rec;
+		strcpy(dst_entry->record->source, source);
+		dst_entry->record->local_time = local_time;
+		dst_entry->record->total_time = total_time;
+		dst_entry->record->call_times = 1;
 		dst_entry->hash_val = hash_val;
 	}
 }

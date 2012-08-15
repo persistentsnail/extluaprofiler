@@ -79,7 +79,7 @@ static int profiler_start(lua_State *L)
 	lua_pushcfunction(L, (lua_CFunction)exit_profiler);
 	lua_settable(L, -3);
 	
-	elprof_callhookIN(S, "profiler_start", "(C)", -1);
+	//elprof_callhookIN(S, "profiler_start", "(C)", -1);
 	lua_pushboolean(L, 1);
 
 	s_S = S;

@@ -14,5 +14,11 @@
 #endif
 
 
+/**************************************************************
+	 string FNV hash algorithm
+	 from http://isthe.com/chongo/tech/comp/fnv/
+ *************************************************************/
+#define FNV1_32A_INIT (0x811c9dc5)
+unsigned int fnv_32a_str(const char *str, unsigned int hval);
 
 #endif

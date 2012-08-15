@@ -113,20 +113,7 @@ int file_buffer_init(const char *file_name, int buffer_size, int chunk_size)
 char * file_buffer_get_next_chunk()
 {
 	if (s_file_buffer.chunk_size + s_file_buffer.used_size > s_file_buffer.buffer_size)
-	{
-		int result;
-		ASSERT(s_file_buffer.used_size == s_file_buffer.buffer_size, 
-				"run time error: file buffer system size is not logical");
-		result = _mem_mapto_file(s_file_buffer.memory, s_file_buffer.buffer_size);
-		if (result == -1) return NULL;
-		s_file_buffer.memory = _file_mapto_mem(s_file_buffer.fd, 
-											   s_file_buffer.buffer_size, 
-											   s_file_buffer.file_size);
-		if (!s_file_buffer.memory) { return NULL; }
-		s_file_buffer.file_size += s_file_buffer.buffer_size;
-		s_file_buffer.used_size = s_file_buffer.chunk_size;
-		return s_file_buffer.memory;
-	}
+		return NULL;
 	else
 	{
 		char *chunk;
@@ -136,6 +123,21 @@ char * file_buffer_get_next_chunk()
 	}
 }
 
+void file_buffer_reset()
+{
+	int result;
+	ASSERT(s_file_buffer.used_size == s_file_buffer.buffer_size, 
+						"Run time error: File Buffer System size is not logical");
+	result = _mem_mapto_file(s_file_buffer.memory, s_file_buffer.buffer_size);
+	s_file_buffer.memory = _file_mapto_mem(s_file_buffer.fd, 
+										   s_file_buffer.buffer_size, 
+						                   s_file_buffer.file_size);
+	s_file_buffer.file_size += s_file_buffer.buffer_size;
+	ASSERT(result != -1 && !s_file_buffer.memory, "Error calling file_buffer_reset");
+
+	s_file_buffer.used_size = 0;
+}
+
 void file_buffer_free()
 {
 	int left_size;
@@ -143,7 +145,7 @@ void file_buffer_free()
 	if (s_file_buffer.memory)
 	{
 		ASSERT(_mem_mapto_file(s_file_buffer.memory, s_file_buffer.buffer_size) != -1, 
-			"file buffer free failed on unmapping");
+			"File Buffer free failed on unmapping");
 	}
 	left_size = s_file_buffer.buffer_size - s_file_buffer.used_size;
 	printf("left_size = %d\n", left_size);

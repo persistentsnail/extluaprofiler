@@ -76,6 +76,8 @@ static int _send_log_data()
 	whole_mem = buffer_get_whole_memory();
 	used_size = buffer_get_used_size();
 	data_size = used_size;
+	if (data_size <= 0)
+		return 0;
 	
 	/* write head */
 	ret = _write(pipefd[1], (char *)&data_size, sizeof(data_size));
@@ -105,11 +107,12 @@ static int _send_log_data()
 
 int elprof_logger_save(elprof_CALLSTACK_RECORD *savef)
 {
-	char *chunk = buffer_get_next_chunk(MAX_RECORDE_STRING_LEN);
+	clock_t delay_time, beg_time_marker, end_time_marker;
+	char *chunk;
+	chunk = buffer_get_next_chunk(MAX_RECORDE_STRING_LEN);
+	delay_time = 0;
 	if (!chunk)
 	{
-		clock_t delay_time, beg_time_marker, end_time_marker;
-
 		beg_time_marker = get_now_time();
 		if (-1 == _send_log_data())
 			return -1;
@@ -118,24 +121,31 @@ int elprof_logger_save(elprof_CALLSTACK_RECORD *savef)
 
 		/* reset buffer */
 		buffer_reset();
-		return delay_time;
+		/* retry */
+		chunk = buffer_get_next_chunk(MAX_RECORDE_STRING_LEN);
+		ASSERT(chunk, "buffer size is too small!");
 	}
-	else
-	{
-		/* save log info to buffer */
-		char info[MAX_RECORDE_STRING_LEN];
-		float local_time_sec = (float)savef->local_time * SECOND_PER_CLOCKS;
-		float total_time_sec = (float)savef->total_time * SECOND_PER_CLOCKS;
-		int size = snprintf(info, MAX_RECORDE_STRING_LEN, "%s:%ld\t%s\n%f\n%f\n", 
-							savef->file_defined, 
-							savef->line_defined, 
-							savef->function_name, 
-							local_time_sec, total_time_sec); 
-		ASSERT(size > 0, "format log info fail");
-		buffer_consume_memory_size(size + 1);
-		return 0;
-	}
+
+	/* save log info to buffer */
+	float local_time_sec = (float)savef->local_time * SECOND_PER_CLOCKS;
+	float total_time_sec = (float)savef->total_time * SECOND_PER_CLOCKS;
+	ASSERT(savef->line_defined != -1, "Runtime error: C Func should have been ignored");
+	int size = snprintf(chunk, MAX_RECORDE_STRING_LEN, "%f %f\n%s:%ld\t%s", 
+					local_time_sec, total_time_sec, 
+					savef->file_defined, 
+					savef->line_defined, 
+					savef->function_name);
+	ASSERT(size > 0, "format log info fail");
+#ifdef DEBUG
+	printf("%s\n", chunk);
+#endif
+	buffer_consume_memory_size(size + 1);
+	return delay_time;
 }
+
+#ifdef DEBUG
+static int debug_count = 0;
+#endif
 
 static int _handle_log_data(char *log_data, int size)
 {
@@ -143,10 +153,22 @@ static int _handle_log_data(char *log_data, int size)
 	float local_time;
 	float total_time;
 	int len = 0;
+	char *split;
 
+#ifdef DEBUG
+	debug_count ++;
+#endif
 	while (size > 0)
 	{
-		sscanf(log_data, "%[^\n]%f\n%f\n", source, &local_time, &total_time);
+		sscanf(log_data, "%f %f\n", &local_time, &total_time);
+		if ((split = strchr(log_data, '\n')) == NULL)
+		{
+			fprintf(stderr, "Error parseing log packet data recieved from pipe");
+			return -1;
+		}
+		strncpy(source, split + 1, MAX_SOURCE_STR_LEN);
+		source[MAX_RECORDE_STRING_LEN - 1] = '\0';
+
 		log_RECORD_pool_add(source, local_time, total_time);
 		len = strlen(log_data) + 1;
 		log_data += len;
