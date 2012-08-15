@@ -95,7 +95,9 @@ LogChunk *LogReader::doReading(void)
 		lc.chunkSize = m_bufSize;
 		lc.chunk 	 = m_buffer;
 		m_logChunks.push_back(lc);
+		#ifdef DEBUG
 		s_nread += m_bufSize;
+		#endif
 		return &m_logChunks.back();
 	}
 	else
@@ -196,7 +198,7 @@ int Running(const char *rawLogFile, const char *fmtLogFile)
 	LogChunk *chunk = NULL;
 	while (chunk = reader.doReading())
 		analyzer.doAnalyzing(chunk);
-	printf("s_nread = %d\n", s_nread);
+
 	writer.doWriting(reader.logChunksInst());
 	reader.finialize();
 	writer.finialize();
