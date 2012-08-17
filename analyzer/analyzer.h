@@ -5,11 +5,13 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <vector>
 
 #include "common.h"
 #include "elprof_logdata.h"
 
 using std::unordered_map;
+using std::vector;
 
 struct Hash
 {
@@ -35,15 +37,18 @@ struct LogChunk
 
 class LogAnalyzer
 {
-	unordered_map<const char *, log_RECORD *, Hash, Equal> m_logRecords; 
+	unordered_map<const char *, log_RECORD *, Hash, Equal> m_hashRecs; 
 	typedef unordered_map<const char *, log_RECORD *, Hash, Equal> _MAP_TYPE;
 	typedef _MAP_TYPE::iterator _MAP_IT_TYPE;
+	vector<log_RECORD *> m_allRecs;
+	log_RECORD m_eof;
 
 public:
 	LogAnalyzer();
 	~LogAnalyzer();
 
-	void doAnalyzing(const LogChunk *logChunk);
+	bool doAnalyzing(const LogChunk *logChunk);
+	vector<log_RECORD *> & allRecords();
 };
 
 #endif

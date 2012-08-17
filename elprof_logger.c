@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/types.h>
+#include <fcntl.h>
 
 #include "elprof_logger.h"
 #include "buffer.h"
@@ -136,16 +137,11 @@ int elprof_logger_save(elprof_CALLSTACK_RECORD *savef)
 					savef->line_defined, 
 					savef->function_name);
 	ASSERT(size > 0, "format log info fail");
-#ifdef DEBUG
-	printf("%s\n", chunk);
-#endif
-	buffer_consume_memory_size(size + 1);
+	buffer_consume_memory_size(strlen(chunk) + 1);
 	return delay_time;
 }
 
-#ifdef DEBUG
-static int debug_count = 0;
-#endif
+DBG(static int debug_count = 0);
 
 static int _handle_log_data(char *log_data, int size)
 {
@@ -155,15 +151,13 @@ static int _handle_log_data(char *log_data, int size)
 	int len = 0;
 	char *split;
 
-#ifdef DEBUG
-	debug_count ++;
-#endif
+	DBG(debug_count++);
 	while (size > 0)
 	{
 		sscanf(log_data, "%f %f\n", &local_time, &total_time);
 		if ((split = strchr(log_data, '\n')) == NULL)
 		{
-			fprintf(stderr, "Error parseing log packet data recieved from pipe");
+			fprintf(stderr, "Error parseing log packet data recieved from pipe : %s", log_data);
 			return -1;
 		}
 		strncpy(source, split + 1, MAX_SOURCE_STR_LEN);
@@ -189,7 +183,6 @@ static int _child_process_running(const char *log_filename)
 		return -1;
 	while(1)
 	{
-
 		/* read head */
 		ret = _read(pipefd[0], (char *)&data_size, sizeof(data_size));
 		if (ret < 0)
@@ -238,9 +231,9 @@ static int _child_process_running(const char *log_filename)
 static void _child_process_exit(int exit_id)
 {
 	if (exit_id != 0)
-		fprintf(stderr, "child process exit abnormally!");
+		fprintf(stderr, "child process exit abnormally!\n");
 	else
-		fprintf(stderr, "child process exit normally!");
+		fprintf(stderr, "child process exit normally!\n");
 
 	close(pipefd[0]);
 	buffer_free();
@@ -268,9 +261,11 @@ int elprof_logger_init(const char *log_filename)
 
 	if (child_pid == 0)
 	{
+		char filename[256];
+		snprintf(filename, sizeof(filename), "%s-%d", log_filename, getpid());
 		close(pipefd[1]);
 		/* child process do writing log file */
-		ret  = _child_process_running(log_filename);
+		ret  = _child_process_running(filename);
 		_child_process_exit(ret);
 	}
 	close(pipefd[0]);
@@ -280,13 +275,10 @@ int elprof_logger_init(const char *log_filename)
 void elprof_logger_stop(void)
 {
 	int status;
-	printf("stop");
 	_send_log_data();
 	buffer_free();
 	close(pipefd[1]);
 	waitpid(child_pid, &status, 0);
-	#ifdef DEBUG
-	printf("parent process exit normally!");
-	#endif
+	DBG(printf("parent process exit normally!"));
 }
 

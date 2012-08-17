@@ -13,6 +13,13 @@
 #define ASSERT(e, msg)
 #endif
 
+#ifdef DEBUG
+#define DBG(a) a
+#else
+#define DBG(a)
+#endif
+
+
 
 /**************************************************************
 	 string FNV hash algorithm

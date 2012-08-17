@@ -17,8 +17,8 @@ static void callhook(lua_State *L, lua_Debug *ar)
 	lua_getinfo(L, "nS", ar);
 	
 	/* ignore LUA API AND C Function */
-	if (ar->linedefined == -1)
-		return;
+//	if (ar->linedefined == -1)
+//		return;
 		
 	if (!ar->event) 
 		/* entering a function */

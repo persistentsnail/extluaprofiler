@@ -1,24 +1,39 @@
 #include "analyzer.h"
 
+
 LogAnalyzer::LogAnalyzer()
 {
+	memset(&m_eof, -1, sizeof(m_eof));
 }
 
 LogAnalyzer::~LogAnalyzer()
 {
+	vector<log_RECORD *>::iterator itRec;
+	for (itRec = m_allRecs.begin(); itRec != m_allRecs.end(); itRec++)
+		delete *itRec;
 }
 
-void LogAnalyzer::doAnalyzing(const LogChunk *logChunk)
+bool LogAnalyzer::doAnalyzing(const LogChunk *logChunk)
 {
-	int nAnalyzed;
+	int nLeft = logChunk->chunkSize;
 	log_RECORD *cur = (log_RECORD *)logChunk->chunk;
-	for (nAnalyzed = 0; nAnalyzed < logChunk->chunkSize; 
-			nAnalyzed += sizeof(log_RECORD))
+	while (nLeft >= sizeof(log_RECORD))
 	{
 		const char *key = cur->source;
-		_MAP_IT_TYPE dstIt = m_logRecords.find(key);
-		if (dstIt == m_logRecords.end())
-			m_logRecords[key] = cur;
+		if (cur->source[0] == 0)
+		{
+			DBG(printf("empty record source stop ananlyzing!\n"));
+			return false;
+		}
+
+		_MAP_IT_TYPE dstIt = m_hashRecs.find(key);
+		if (dstIt == m_hashRecs.end())
+		{
+			log_RECORD *one = new log_RECORD;
+			*one = *cur;
+			m_allRecs.push_back(one);
+			m_hashRecs[key] = one;
+		}
 		else
 		{
 			dstIt->second->call_times += cur->call_times;
@@ -26,8 +41,18 @@ void LogAnalyzer::doAnalyzing(const LogChunk *logChunk)
 			dstIt->second->total_time += cur->total_time;
 		}
 		cur++;
+		nLeft -= sizeof(log_RECORD);
 	}
-	ASSERT(nAnalyzed == logChunk->chunkSize, "Runtime error: raw log file is not logical");
+#ifdef DEBUG
+	if (nLeft > 0)
+		printf("log Records data is not complete!\n");
+#endif
+	return true;
+}
+
+vector<log_RECORD *> & LogAnalyzer::allRecords()
+{
+	return m_allRecs;
 }
 
 /**************************************************************

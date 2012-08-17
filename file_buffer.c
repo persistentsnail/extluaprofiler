@@ -21,22 +21,21 @@ typedef struct _file_buffer_t
 {
 	int fd;
 	int file_size;
-
-	char *memory;
-	int buffer_size;  /* buffer_size must be a multiple of PAGE SIZE */
 	int chunk_size;
 
+	char *memory;
+	int buffer_size;  /* buffer_size must be a multiple of PAGE SIZE and chunk size*/
 	int used_size;
 
 }file_buffer_t;
 
-file_buffer_t s_file_buffer;
+static file_buffer_t s_fb;
 
 static char * _file_mapto_mem(int fd, int mem_size, int file_offset)
 {
 	int result;
 	char *mem;
-	result = lseek(fd, mem_size - 1, SEEK_CUR);
+	result = lseek(fd, mem_size - 1 + file_offset, SEEK_SET);
 	if (result == -1)
 	{
 		perror("Error calling lseek to stretch the file");
@@ -90,35 +89,43 @@ int file_buffer_init(const char *file_name, int buffer_size, int chunk_size)
 		return -1;
 	}
 
-	s_file_buffer.fd = open(file_name, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
-	if (s_file_buffer.fd == -1)
+	s_fb.fd = open(file_name, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+	if (s_fb.fd == -1)
 	{
 		perror("Error opening file for writing");
 		return -1;
 	}
-	s_file_buffer.used_size   = 0;
-	s_file_buffer.chunk_size  = chunk_size;
 
 	/* adjust buffer_size to buffer_size % PAGE_SIZE == 0 and buffer_size % chunk_size == 0 */
 	page_size = sysconf(_SC_PAGE_SIZE);
 	mask_size = _LCM(page_size, chunk_size);
-	s_file_buffer.buffer_size = (buffer_size / mask_size) * mask_size;
+	s_fb.buffer_size = (buffer_size / mask_size) * mask_size;
 
-	s_file_buffer.memory = _file_mapto_mem(s_file_buffer.fd, s_file_buffer.buffer_size, 0);
-	if (!s_file_buffer.memory) { close(s_file_buffer.fd); return -1;}
-	s_file_buffer.file_size = s_file_buffer.buffer_size;
+	/* mmap init memory */
+	s_fb.memory = _file_mapto_mem(s_fb.fd, s_fb.buffer_size, 0);
+	if (!s_fb.memory) 
+	{ 
+		close(s_fb.fd); 
+		return -1;
+	}
+
+	/* init file buffer file size, chunk size, used size */
+	s_fb.file_size = s_fb.buffer_size;
+	s_fb.chunk_size  = chunk_size;
+	s_fb.used_size   = 0;
+
 	return 0;
 }
 
 char * file_buffer_get_next_chunk()
 {
-	if (s_file_buffer.chunk_size + s_file_buffer.used_size > s_file_buffer.buffer_size)
+	if (s_fb.chunk_size + s_fb.used_size > s_fb.buffer_size)
 		return NULL;
 	else
 	{
 		char *chunk;
-		chunk = s_file_buffer.memory + s_file_buffer.used_size;
-		s_file_buffer.used_size += s_file_buffer.chunk_size;
+		chunk = s_fb.memory + s_fb.used_size;
+		s_fb.used_size += s_fb.chunk_size;
 		return chunk;
 	}
 }
@@ -126,33 +133,35 @@ char * file_buffer_get_next_chunk()
 void file_buffer_reset()
 {
 	int result;
-	ASSERT(s_file_buffer.used_size == s_file_buffer.buffer_size, 
+	ASSERT(s_fb.used_size == s_fb.buffer_size, 
 						"Run time error: File Buffer System size is not logical");
-	result = _mem_mapto_file(s_file_buffer.memory, s_file_buffer.buffer_size);
-	s_file_buffer.memory = _file_mapto_mem(s_file_buffer.fd, 
-										   s_file_buffer.buffer_size, 
-						                   s_file_buffer.file_size);
-	s_file_buffer.file_size += s_file_buffer.buffer_size;
-	ASSERT(result != -1 && !s_file_buffer.memory, "Error calling file_buffer_reset");
+	DBG(printf("file size grow %x\n", s_fb.buffer_size));
+	result = _mem_mapto_file(s_fb.memory, s_fb.buffer_size);
 
-	s_file_buffer.used_size = 0;
+	s_fb.memory = _file_mapto_mem(s_fb.fd, 
+										   s_fb.buffer_size, 
+						                   s_fb.file_size);
+	s_fb.file_size += s_fb.buffer_size;
+	ASSERT(result != -1 && !s_fb.memory, "Error calling file_buffer_reset");
+
+	s_fb.used_size = 0;
 }
 
 void file_buffer_free()
 {
 	int left_size;
-	printf("file_buffer_free\n");
-	if (s_file_buffer.memory)
+	if (s_fb.memory)
 	{
-		ASSERT(_mem_mapto_file(s_file_buffer.memory, s_file_buffer.buffer_size) != -1, 
+		ASSERT(_mem_mapto_file(s_fb.memory, s_fb.buffer_size) != -1, 
 			"File Buffer free failed on unmapping");
 	}
-	left_size = s_file_buffer.buffer_size - s_file_buffer.used_size;
-	printf("left_size = %d\n", left_size);
+	left_size = s_fb.buffer_size - s_fb.used_size;
 	if (left_size > 0)
 	{ 
-		if (-1 == ftruncate(s_file_buffer.fd, s_file_buffer.file_size - left_size)) 
+		DBG(printf("file buffer free , left %d size bytes not written!\n", left_size));
+		if (-1 == ftruncate(s_fb.fd, s_fb.file_size - left_size)) 
 			perror("Error calling ftruncate to change file size");
 	}
-	close(s_file_buffer.fd);
+
+	close(s_fb.fd);
 }

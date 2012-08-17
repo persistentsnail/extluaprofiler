@@ -5,6 +5,7 @@
 #include "elprof_core.h"
 #include "elprof_logger.h"
 #include "clocks.h"
+#include "common.h"
 
 
 void elprof_callhookIN(elprof_STATE *S, const char *func_name, const char *file, int linedefined)
@@ -13,6 +14,19 @@ void elprof_callhookIN(elprof_STATE *S, const char *func_name, const char *file,
 	clock_t now_time_marker;
 	elprof_CALLSTACK_RECORD *parentf = S->stack_top;
 	elprof_CALLSTACK_RECORD *newf = CALLSTACK_RECORD_new();
+	#ifdef DEBUG
+	if (!newf)
+	{
+	int i;
+	printf("mem not enough\nstack is\n");
+	elprof_CALLSTACK_RECORD *p = S->stack_top;
+	while (p)
+	{
+		fprintf(stderr, "%s : %d : %s\n", p->file_defined, p->line_defined, p->function_name);
+		p = p->next;
+	}
+	}
+	#endif
 	CALLSTACK_push(&(S->stack_top), newf);
 
 	newf->file_defined  = file;
@@ -35,32 +49,37 @@ int elprof_callhookOUT(elprof_STATE *S)
 	int delay_time;
 	elprof_CALLSTACK_RECORD *leavef;
 	if (S->stack_level-- == 0)
+	{
+		S->stack_level = 0;
 		return 0;
+	}
 	now_time_marker = get_now_time();
 	leavef = CALLSTACK_pop(&(S->stack_top));
 	leavef->local_time += now_time_marker - leavef->local_time_marker;
 	leavef->total_time += now_time_marker - leavef->total_time_marker;
 
-	/* save call stack info */
-	delay_time = elprof_logger_save(leavef);
-	if (delay_time < 0)
-	{
-		fprintf(stderr, "save the call of %s : %ld : %s failed!",
-				leavef->file_defined,
-				leavef->line_defined,
-				leavef->function_name
-				);
-	}
-	else if (delay_time > 0)
-	{
-		/* fix every call stack records' time */
-		elprof_CALLSTACK p;
-		p = S->stack_top;
-		now_time_marker = get_now_time(); /* for top record local_time_marker */
-		while (p)
+	if (leavef->line_defined != -1)
+	{/* save call stack info */
+		delay_time = elprof_logger_save(leavef);
+		if (delay_time < 0)
 		{
-			p->total_time -= delay_time;
-			p = p->next;
+			fprintf(stderr, "save the call of %s : %ld : %s failed!",
+							leavef->file_defined,
+							leavef->line_defined,
+							leavef->function_name
+				   );
+		}
+		else if (delay_time > 0)
+		{
+				/* fix every call stack records' time */
+				elprof_CALLSTACK p;
+				p = S->stack_top;
+				now_time_marker = get_now_time(); /* for top record local_time_marker */
+				while (p)
+				{
+						p->total_time -= delay_time;
+						p = p->next;
+				}
 		}
 	}
 	CALLSTACK_RECORD_delete(leavef);
@@ -79,7 +98,7 @@ elprof_STATE *elprof_core_init(const char *out_filename)
 		S->stack_top = NULL;
 
 		/* create CALLSTACK RECORDS pool */
-		if (CALLSTACK_RECORD_pool_create(32) == -1 || elprof_logger_init(out_filename) == -1)
+		if (CALLSTACK_RECORD_pool_create(128) == -1 || elprof_logger_init(out_filename) == -1)
 		{
 			free(S);
 			return NULL;

@@ -26,16 +26,14 @@ class LogReader
 	char *m_buffer;
 	int m_bufSize;
 
-	vector<LogChunk> m_logChunks;
 public:
-	LogReader():m_fd(-1) {}
+	LogReader():m_fd(-1), m_buffer(NULL) {}
 	~LogReader() {}
 
 	bool initialize(const char *rawLogFile, int bufSize);
 	void finialize();
 
 	LogChunk *doReading();
-	const vector<LogChunk> &logChunksInst() const;
 };
 
 class LogWriter
@@ -47,8 +45,20 @@ public:
 	bool initialize(const char *fmtLogFile);
 	void finialize();
 
-	void doWriting(const vector<LogChunk> &rawLogChunks);
+	void doWriting(vector<log_RECORD *> &);
 };
+
+static int _GCD(int a, int b)
+{
+	if (a % b == 0)
+		return b;
+	return _GCD(b, a % b);
+}
+
+static int _LCM(int a, int b)
+{
+	return (a * b) / _GCD(a, b);
+}
 
 bool LogReader::initialize(const char *rawLogFile, int bufSize)
 {
@@ -68,8 +78,10 @@ bool LogReader::initialize(const char *rawLogFile, int bufSize)
 	m_fileSize = stat_.st_size;
 	m_offset = 0;
 
-	int maskSize = sysconf(_SC_PAGE_SIZE) - 1;
-	m_bufSize = bufSize & ~maskSize;
+	int pageSize = sysconf(_SC_PAGE_SIZE);
+	int mult = _LCM(pageSize, sizeof(log_RECORD));
+	m_bufSize = (bufSize / mult) * mult;
+	m_buffer = NULL;
 	return true;
 }
 
@@ -79,10 +91,19 @@ static size_t s_nread = 0;
 
 LogChunk *LogReader::doReading(void)
 {
+	if (m_buffer)
+	{
+		if (munmap(m_buffer, m_bufSize) == -1)
+			perror("Error calling munmap");
+		m_buffer = NULL;
+	}
+	
 	if (m_offset < m_fileSize)
 	{
 		if (m_offset + m_bufSize > m_fileSize)
 			m_bufSize = m_fileSize - m_offset;
+		if (m_bufSize < sizeof(log_RECORD))
+			return NULL;
 		m_buffer = (char *)mmap(NULL, m_bufSize, PROT_READ, MAP_SHARED, m_fd, m_offset);
 		if (m_buffer == MAP_FAILED)
 		{
@@ -91,30 +112,20 @@ LogChunk *LogReader::doReading(void)
 		}
 		m_offset += m_bufSize;
 
-		LogChunk lc;
+		static LogChunk lc;
 		lc.chunkSize = m_bufSize;
 		lc.chunk 	 = m_buffer;
-		m_logChunks.push_back(lc);
-		#ifdef DEBUG
-		s_nread += m_bufSize;
-		#endif
-		return &m_logChunks.back();
+		return &lc;
 	}
 	else
 		return NULL;
 }
 
-const vector<LogChunk> &LogReader::logChunksInst() const
-{
-	return m_logChunks;
-}
-
 void LogReader::finialize()
 {
-	vector<LogChunk>::iterator it;
-	for (it = m_logChunks.begin(); it != m_logChunks.end(); it++)
+	if (m_buffer)
 	{
-		if (munmap(it->chunk, it->chunkSize) == -1)
+		if(munmap(m_buffer, m_bufSize) == -1)
 			perror("Error calling munmap");
 	}
 	if (m_fd != -1)
@@ -159,24 +170,12 @@ bool LogWriter::initialize(const char *fmtLogFile)
 
 void LogWriter::finialize()
 {
-	fclose(m_fileH);
+	if (m_fileH)
+		fclose(m_fileH);
 }
 
-void LogWriter::doWriting(const vector<LogChunk> &rawLogChunks)
+void LogWriter::doWriting(vector<log_RECORD *> &allRecs)
 {
-	vector<log_RECORD *> allRecs;
-	vector<LogChunk>::const_iterator chunkIt;
-	for (chunkIt = rawLogChunks.begin(); chunkIt != rawLogChunks.end(); chunkIt++)
-	{
-		int nAnalyzed;
-		log_RECORD *cur = (log_RECORD *)chunkIt->chunk;
-		for (nAnalyzed = 0; nAnalyzed < chunkIt->chunkSize; 
-				nAnalyzed += sizeof(log_RECORD))
-		{
-			allRecs.push_back(cur);
-			cur++;
-		}
-	}
 	std::sort(allRecs.begin(), allRecs.end(), LocalTimeComp());
 	vector<PLOG_RECORD>::iterator recordIt;
 	for (recordIt = allRecs.begin(); recordIt != allRecs.end(); recordIt++)
@@ -196,10 +195,9 @@ int Running(const char *rawLogFile, const char *fmtLogFile)
 	if(!writer.initialize(fmtLogFile))
 		return -1;
 	LogChunk *chunk = NULL;
-	while (chunk = reader.doReading())
-		analyzer.doAnalyzing(chunk);
+	while ((chunk = reader.doReading()) && analyzer.doAnalyzing(chunk));
 
-	writer.doWriting(reader.logChunksInst());
+	writer.doWriting(analyzer.allRecords());
 	reader.finialize();
 	writer.finialize();
 }

@@ -10,7 +10,7 @@ LUA = $(HOME)/running/3rd/lua/lua-5.1.3_coco-1.1.4/src
 INCS = -I$(LUA) -I$(SRC_PATH)
 CC = gcc
 WARN = -W -Wall
-CFLAGS = -O2 -fPIC $(WARN) $(INCS)
+CFLAGS = -O2 -fPIC $(WARN) $(INCS) 
 
 all: profiler 
 all: tool
@@ -38,3 +38,4 @@ test_debug: OUTPUT_PATH = ./test
 test_debug:	debug
 test_debug:	
 			-(cd test && make debug)
+			-(cp test/elprofiler.so $(LUA))

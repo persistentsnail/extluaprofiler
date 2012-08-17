@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "callstack.h"
-#define POOL_SIZE_LIMIT 100
+#define POOL_SIZE_LIMIT 1024
 
 /**************************************************
  * CALLSTACK RECORDS pool implements

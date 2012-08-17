@@ -12,7 +12,7 @@ endif
 analyzer: $(OBJS)
 	$(CXX) -o $(OUTPUT_PATH)/analyzer $(OBJS)
 
-debug: CPPFLAGS += -g -DDEBUG
+debug: CPPFLAGS += -g -DDEBUG 
 debug: analyzer
 
 

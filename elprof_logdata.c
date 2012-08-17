@@ -100,6 +100,7 @@ void log_RECORD_pool_add(char *source, float local_time, float total_time)
 		new_rec = (log_RECORD *)file_buffer_get_next_chunk();
 		if (!new_rec)
 		{
+			printf(">> Mark, empty new rec\n");
 			file_buffer_reset();
 			new_rec = (log_RECORD *)file_buffer_get_next_chunk();
 			ASSERT(new_rec, "File Buffer size is too small");

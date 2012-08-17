@@ -5,8 +5,10 @@ extern "C" {
 int luaopen_elprofiler(lua_State *L);
 };
 
+#include <profiler.h>
 int main(int argc, char *argv[])
 {
+//	ProfilerStart("CPUProfile");
 	lua_State *L = luaL_newstate();
 	luaL_openlibs(L);
 	//luaopen_elprofiler(L);
@@ -15,6 +17,7 @@ int main(int argc, char *argv[])
 		printf("%s\n", lua_tostring(L, -1));
 	}
 	lua_close(L);
+//	ProfilerStop();
 	return 0;
 }
 
