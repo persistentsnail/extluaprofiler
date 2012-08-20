@@ -71,15 +71,19 @@ static void _log_RECORD_pool_reset()
 	memset(s_hash, 0, sizeof(bucket_t) * nbuckets);
 }
 
-void log_RECORD_pool_add(char *source, float local_time, float total_time)
+void log_RECORD_pool_add(char *file_defined, char *function_name, 
+						int line_define, float local_time, float total_time)
 {
 	int i;
 	unsigned int hash_val;
 	bucket_t *bucket;
 	entry_t *dst_entry;
 	log_RECORD *new_rec;
+	char source[MAX_SOURCE_STR_LEN];
 
 	/* hash source string , get dest entry by hash key */
+	snprintf(source, MAX_SOURCE_STR_LEN, "%s:%d\t%s",
+				file_defined, line_define, function_name);
 	hash_val = fnv_32a_str(source, FNV1_32A_INIT);
 	bucket = &s_hash[hash_val % nbuckets];
 
@@ -100,7 +104,7 @@ void log_RECORD_pool_add(char *source, float local_time, float total_time)
 		new_rec = (log_RECORD *)file_buffer_get_next_chunk();
 		if (!new_rec)
 		{
-			printf(">> Mark, empty new rec\n");
+			DBG(printf(">> Mark, empty new rec\n"));
 			file_buffer_reset();
 			new_rec = (log_RECORD *)file_buffer_get_next_chunk();
 			ASSERT(new_rec, "File Buffer size is too small");

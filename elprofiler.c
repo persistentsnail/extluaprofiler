@@ -14,11 +14,11 @@ static elprof_STATE *s_S;
 static int profiler_stop(lua_State *L);
 static void callhook(lua_State *L, lua_Debug *ar)
 {
-	lua_getinfo(L, "nS", ar);
+	lua_getinfo(L, "nS", ar); 
 	
 	/* ignore LUA API AND C Function */
-//	if (ar->linedefined == -1)
-//		return;
+   /* if (ar->linedefined == -1) */
+   /*		return;  */
 		
 	if (!ar->event) 
 		/* entering a function */
@@ -79,7 +79,7 @@ static int profiler_start(lua_State *L)
 	lua_pushcfunction(L, (lua_CFunction)exit_profiler);
 	lua_settable(L, -3);
 	
-	//elprof_callhookIN(S, "profiler_start", "(C)", -1);
+	/* elprof_callhookIN(S, "profiler_start", "(C)", -1); */
 	lua_pushboolean(L, 1);
 
 	s_S = S;

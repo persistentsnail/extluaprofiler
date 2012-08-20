@@ -15,6 +15,6 @@ typedef struct _log_RECORD
 int log_RECORD_pool_init(int size, const char *log_filename);
 void log_RECORD_pool_free();
 
-void log_RECORD_pool_add(char *source, float local_time, float total_time);
+void log_RECORD_pool_add(char *file_defined, char *function_name, int line_defined, float local_time, float total_time);
 
 #endif

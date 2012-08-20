@@ -142,7 +142,7 @@ void file_buffer_reset()
 										   s_fb.buffer_size, 
 						                   s_fb.file_size);
 	s_fb.file_size += s_fb.buffer_size;
-	ASSERT(result != -1 && !s_fb.memory, "Error calling file_buffer_reset");
+	ASSERT(result != -1 && s_fb.memory, "Error calling file_buffer_reset");
 
 	s_fb.used_size = 0;
 }

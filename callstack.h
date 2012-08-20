@@ -12,7 +12,7 @@ struct _elprof_CALLSTACK_RECORD
 
 	const char  *file_defined;
 	const char *function_name;
-	long		 line_defined;
+	int line_defined;
 	
 	clock_t   local_time;
 	clock_t   total_time;

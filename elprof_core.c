@@ -17,7 +17,6 @@ void elprof_callhookIN(elprof_STATE *S, const char *func_name, const char *file,
 	#ifdef DEBUG
 	if (!newf)
 	{
-	int i;
 	printf("mem not enough\nstack is\n");
 	elprof_CALLSTACK_RECORD *p = S->stack_top;
 	while (p)
@@ -60,14 +59,14 @@ int elprof_callhookOUT(elprof_STATE *S)
 
 	if (leavef->line_defined != -1)
 	{/* save call stack info */
-		delay_time = elprof_logger_save(leavef);
+		delay_time = elprof_logger_save(leavef); 
 		if (delay_time < 0)
 		{
-			fprintf(stderr, "save the call of %s : %ld : %s failed!",
+			/*fprintf(stderr, "save the call of %s : %d : %s failed!",
 							leavef->file_defined,
 							leavef->line_defined,
 							leavef->function_name
-				   );
+				   );*/
 		}
 		else if (delay_time > 0)
 		{
@@ -115,5 +114,6 @@ void elprof_core_finalize(elprof_STATE *S)
 		CALLSTACK_RECORD_pool_destroy();
 		free(S);
 		elprof_logger_stop();
+		S = NULL;
 	}
 }
