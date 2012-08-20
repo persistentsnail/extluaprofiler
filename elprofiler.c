@@ -47,13 +47,18 @@ static int profiler_start(lua_State *L)
 {
 	elprof_STATE *S;
 	const char *outfile;
+	int top;
 
 	lua_pushlightuserdata(L, &elprof_state_id);
 	lua_gettable(L, LUA_REGISTRYINDEX);
 
 	/* mismatch start/stop */
 	if (!lua_isnil(L, -1))
+	{
+		top = lua_gettop(L);
 		profiler_stop(L);
+		lua_settop(L, top);
+	}
 	lua_pop(L, 1);
 
 	outfile = NULL;
