@@ -27,7 +27,7 @@ debug: profiler
 
 clean:
 		-(rm -f $(OUTPUT_PATH)/$(OUTPUT_NAME) $(SRC_PATH)/*.o)
-		-(cd analyzer && make clean OUTPUT_PATH=$(OUTPUT_PATH))
+		-(cd analyzer && make clean OUTPUT_PATH=$(PWD)/$(OUTPUT_PATH))
 
 test: OUTPUT_PATH = ./test
 test: profiler tool
