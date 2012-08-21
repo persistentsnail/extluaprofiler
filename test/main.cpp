@@ -5,7 +5,6 @@ extern "C" {
 int luaopen_elprofiler(lua_State *L);
 };
 
-#include <profiler.h>
 int main(int argc, char *argv[])
 {
 //	ProfilerStart("CPUProfile");

@@ -16,7 +16,7 @@ all: profiler
 all: tool
 
 profiler: $(OBJS)
-		mkdir -p $(OUTPUT_PATH) && $(LD) -shared -o $(OUTPUT_PATH)/$(OUTPUT_NAME) $(OBJS)
+		mkdir -p $(OUTPUT_PATH) && $(CC) -shared -o $(OUTPUT_PATH)/$(OUTPUT_NAME) $(OBJS)
 
 tool:
 	-(cd analyzer && make OUTPUT_PATH=$(PWD)/$(OUTPUT_PATH))
