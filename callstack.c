@@ -48,7 +48,9 @@ elprof_CALLSTACK_RECORD *CALLSTACK_RECORD_new()
 
 void CALLSTACK_RECORD_delete(elprof_CALLSTACK_RECORD *unused)
 {
-	s_CRpool.records[s_CRpool.left_size++] = unused;
+	if (++s_CRpool.left_size > s_CRpool.pool_size) 
+		return;
+	s_CRpool.records[s_CRpool.left_size - 1] = unused;
 }
 
 void CALLSTACK_RECORD_pool_destroy()

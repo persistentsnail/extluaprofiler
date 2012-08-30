@@ -3,11 +3,11 @@
 
 #include "callstack.h"
 
-void elprof_callhookIN(elprof_STATE *S, const char *func_name, const char *file, int linedefined);
+int elprof_callhookIN(void *luaS, const char *func_name, const char *file, int linedefined);
 
-int elprof_callhookOUT(elprof_STATE *S);
+int elprof_callhookOUT(void *luaS);
 
-elprof_STATE *elprof_core_init(const char *out_filename);
-void elprof_core_finalize(elprof_STATE *S);
+int elprof_core_init(void *luaS, const char *out_filename);
+void elprof_core_finalize();
 
 #endif

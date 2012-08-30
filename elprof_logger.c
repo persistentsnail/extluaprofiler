@@ -353,6 +353,6 @@ void elprof_logger_stop(void)
 		_terminate_logger();
 	}
 	waitpid(child_pid, &status, 0);
-	DBG(printf("logger has stopped!\n"));
+	DBG(fprintf(stderr, "logger has stopped!\n"));
 }
 

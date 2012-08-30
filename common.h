@@ -3,7 +3,7 @@
 
 #ifdef DEBUG
 #define ASSERT(e, msg) if (!(e)) { int line = __LINE__;			\
-    fprintf(stdout,                                     \
+    fprintf(stderr,                                     \
 	    "file %s line %d : assertion failed: %s\n", \
 	   __FILE__,                                  \
 	   line,                                  \

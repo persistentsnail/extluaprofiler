@@ -8,36 +8,35 @@
 #include "elprof_core.h"
 
 static int exit_id;
-static int elprof_state_id;
-static elprof_STATE *s_S;
+static int profiler_is_running = 0;
 
 static int profiler_stop(lua_State *L);
 static void callhook(lua_State *L, lua_Debug *ar)
 {
-	lua_getinfo(L, "nS", ar); 
-	
-	/* ignore LUA API AND C Function */
-   /* if (ar->linedefined == -1) */
-   /*		return;  */
-		
+	int ret;
+	if (!profiler_is_running)
+	{
+		lua_sethook(L, (lua_Hook)callhook, 0, 0);
+		return;
+	}
 	if (!ar->event) 
-		/* entering a function */
-		elprof_callhookIN(s_S, ar->name, ar->source, ar->linedefined);
- 	 else
-  		/* ar->event == "return" */
-    	elprof_callhookOUT(s_S);
+	/* entering a function */
+	{
+		lua_getinfo(L, "nS", ar); 
+		ret = elprof_callhookIN(L, ar->name, ar->source, ar->linedefined);
+	}
+	else
+	/* ar->event == "return" */
+		ret = elprof_callhookOUT(L);
+	if (ret == -1)
+		profiler_stop(L);
 }
 
 static void exit_profiler(lua_State *L)
-{
-	elprof_STATE* S;
-	lua_pushlightuserdata(L, &elprof_state_id);
-	lua_gettable(L, LUA_REGISTRYINDEX);
-	if (!lua_isnil(L, -1))
-	{
-		S = (elprof_STATE*)lua_touserdata(L, -1);
-		elprof_core_finalize(S);
-	}
+{	
+	if (profiler_is_running)
+		elprof_core_finalize();
+		
 	lua_pushlightuserdata(L, &exit_id);
 	lua_gettable(L, LUA_REGISTRYINDEX);
 	lua_call(L, 0, 0);
@@ -45,34 +44,25 @@ static void exit_profiler(lua_State *L)
 
 static int profiler_start(lua_State *L)
 {
-	elprof_STATE *S;
 	const char *outfile;
-	int top;
-
-	lua_pushlightuserdata(L, &elprof_state_id);
-	lua_gettable(L, LUA_REGISTRYINDEX);
+	int ret;
 
 	/* mismatch start/stop */
-	if (!lua_isnil(L, -1))
+	if (profiler_is_running)
 	{
-		top = lua_gettop(L);
 		profiler_stop(L);
-		lua_settop(L, top);
+		lua_pop(L, 1);
 	}
-	lua_pop(L, 1);
 
 	outfile = NULL;
 	if (lua_gettop(L) >= 1)
 		outfile = luaL_checkstring(L, 1);
 	
-	S = elprof_core_init(outfile);
-	if (!S) return luaL_error(L, "extLuaProfiler error: output file could not be opened!");
+	ret = elprof_core_init(L, outfile);
+	if (ret == -1) return luaL_error(L, "extLuaProfiler error: output file could not be opened!");
 
 	lua_sethook(L, (lua_Hook)callhook, LUA_MASKCALL | LUA_MASKRET, 0);
-	
-	lua_pushlightuserdata(L, &elprof_state_id);
-	lua_pushlightuserdata(L, S);
-	lua_settable(L, LUA_REGISTRYINDEX);
+	profiler_is_running = 1;
 	
 	/* use our own exit function instead */
 	lua_getglobal(L, "os");
@@ -87,25 +77,18 @@ static int profiler_start(lua_State *L)
 	/* elprof_callhookIN(S, "profiler_start", "(C)", -1); */
 	lua_pushboolean(L, 1);
 
-	s_S = S;
 	return 1;
 }
 
 static int profiler_stop(lua_State *L)
 {
-	elprof_STATE* S;
 	lua_sethook(L, (lua_Hook)callhook, 0, 0);
-	lua_pushlightuserdata(L, &elprof_state_id);
-	lua_gettable(L, LUA_REGISTRYINDEX);
 	
-	if(!lua_isnil(L, -1))
+	if(profiler_is_running)
 	{
-		S = (elprof_STATE*)lua_touserdata(L, -1);
-		elprof_core_finalize(S);
-		lua_pushlightuserdata(L, &elprof_state_id);
-		lua_pushnil(L);
-		lua_settable(L, LUA_REGISTRYINDEX);
+		elprof_core_finalize();
 		lua_pushboolean(L, 1);
+		profiler_is_running = 0;
 	}
 	else
 		lua_pushboolean(L, 0);
